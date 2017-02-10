@@ -116,10 +116,7 @@ mySecretKey         <- read.table("Twitter/authentication/mySecretKey")
 myAccessToken       <- read.table("Twitter/authentication/myAccessToken")
 myAccessTokenSecret <- read.table("Twitter/authentication/myAccessTokenSecret")
 
-myConsumerKey       <- "gBpKRpv0zLy75E5jGRF0zlb7c"
-mySecretKey         <- "qhbVpNCEGsG3rzfNnMEkWADWQ4nWYUyWS1JybAYR3lMRIqDz1u"
-myAccessToken       <- "119456796-ApyBB2XhNHdvq97ZRJAMeUuExuaNXCUPWCG5Iv3H"
-myAccessTokenSecret <- "lT7xsh941XpQ0JOJqFJWchHqCYWy1OjGlV1HtKaqjZby8"  
+
 
 setup_twitter_oauth(myConsumerKey, mySecretKey, myAccessToken, myAccessTokenSecret)
 
