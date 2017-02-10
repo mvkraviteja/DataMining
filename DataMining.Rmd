@@ -1,0 +1,547 @@
+---
+title: "DataMining"
+author: "RaviTeja Manda"
+date: "January 25, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r algorithm, echo=TRUE}
+  # 1. Download Census Data (census done in 2010)
+  # 2. Download couple of polling data from different agencies
+  # 3. Download twitter data of tweets from Hillary
+  # 4. Download twitter data of tweets from Trump
+  # 5. Download twitter data of tweets from popular hashtags
+
+  
+```
+
+```{r installers, echo=TRUE }
+
+## Set current working directory 
+## Make sure the working directory is set appropriately
+setwd("~/Documents/DataMining")
+
+## install the following packages if not available and load them in to the session
+## (check for the availability of the following packages)
+
+## Upgrading the OS started creating some X11 issues...
+
+##install.packages("XQuartz")
+##library(XQuartz)
+## sudo ln -s /opt/X11/lib/libpng15.15.dylib /usr/local/lib/libpng15.15.dylib
+## Install xQuartz from here :: https://dl.bintray.com/xquartz/downloads/XQuartz-2.7.11.dmg
+
+
+#install.packages("ggplot2") :: Dependencies --> assertthat’, ‘gtable’, ‘reshape2’, ‘tibble’, ‘lazyeval’
+library(ggplot2)
+#install.packages("acs"") :: Dependencies ---> ‘plyr’, ‘XML’, ‘RCurl’
+library(acs)
+#install.packages("tigris") :: Dependencies ---> ‘curl’, ‘openssl’, ‘R6’, ‘rgdal’, ‘rgeos’, ‘sp’, ‘rappdirs’, ‘maptools’, ‘httr’, ‘uuid’
+library(tigris)
+#install.packages("leaflet") :: Dependencies ---> ‘colorspace’, ‘dichromat’, ‘munsell’, ‘labeling’, ‘htmlwidgets’, ‘png’, ‘RColorBrewer’, ‘raster’, ‘scales’
+library(leaflet)
+#install.packages("wordcloud") :: Dependencies ---> 'slam'
+library(wordcloud)
+#install.packages("tm") :: Dependencies ---> 'NLP'
+library(tm)
+#install.packages("SnowballC")
+library(SnowballC)
+#install.packages("twitteR") :: Dependencies ---> ‘bit’, ‘bit64’, ‘rjson’, ‘DBI’
+library(twitteR)
+# Authentication dependencies
+library(base64enc)
+#install.packages("xlsx") :: Dependencies ---> ‘rJava’, ‘xlsxjars’
+library(xlsx)
+#install.packages("XLConnect") :: Dependencies ---> ‘XLConnectJars’
+library(readxl)
+#install.packages("data.table")
+library(data.table)
+#install.packages("devtools") :: Dependencies ---> ‘memoise’, ‘whisker’, ‘rstudioapi’, ‘git2r’, ‘withr’
+library(devtools)
+#install.packages("censusapi")
+devtools::install_github("hrecht/censusapi")
+library(censusapi)
+
+#install.packages("readr")
+library(readr)
+
+#install.packages("plotly") :: Dependencies ---> 'viridisLite’, ‘tidyr’, ‘dplyr’, ‘hexbin’, ‘purrr’
+library(plotly)
+```
+
+```{r electoralVotes, echo=FALSE}
+#electoralVotes <- read("electoralVote/electoralVoteByState.csv")
+#View(electoralVotes)
+##Data cleaning required.
+electoralVotes <- read_delim("electoralVote/electoralVoteByState.csv", delim='\t')
+View(electoralVotes)
+
+electoralVotes <- as.data.frame(electoralVotes)
+View(electoralVotes)
+
+electoralVoteCountByState <- electoralVotes$`Number of Electoral Votes`
+
+electoralVotePlot <- plot_ly(electoralVotes, x = ~State, y = ~electoralVoteCountByState,
+                             type='scatter', mode='markers',
+                             xaxis = list(showgrid=FALSE),
+                             yaxis = list(showgrid=FALSE))
+electoralVotePlot
+
+electoralVotePlot <- plot_ly(electoralVotes, x = ~State, y = ~electoralVoteCountByState,
+                             type='scatter', mode='markers',
+                             marker = list(size = ~electoralVoteCountByState, opacity=0.3),
+                             xaxis = list(showgrid=FALSE),
+                             yaxis = list(showgrid=FALSE)
+                             )
+electoralVotePlot
+
+
+```
+
+```{r settingUpTwitter, echo=FALSE}
+myConsumerKey       <- read.table("Twitter/authentication/myConsumerKey")
+mySecretKey         <- read.table("Twitter/authentication/mySecretKey")
+myAccessToken       <- read.table("Twitter/authentication/myAccessToken")
+myAccessTokenSecret <- read.table("Twitter/authentication/myAccessTokenSecret")
+
+myConsumerKey       <- "gBpKRpv0zLy75E5jGRF0zlb7c"
+mySecretKey         <- "qhbVpNCEGsG3rzfNnMEkWADWQ4nWYUyWS1JybAYR3lMRIqDz1u"
+myAccessToken       <- "119456796-ApyBB2XhNHdvq97ZRJAMeUuExuaNXCUPWCG5Iv3H"
+myAccessTokenSecret <- "lT7xsh941XpQ0JOJqFJWchHqCYWy1OjGlV1HtKaqjZby8"  
+
+setup_twitter_oauth(myConsumerKey, mySecretKey, myAccessToken, myAccessTokenSecret)
+
+#Checking the connectivity (by default returns 25 tweets)
+searchTwitter("RaviTeja")
+
+```
+
+```{r settingUpCensusDataDownload, echo=FALSE}
+
+## Download Census Data
+## Get a signup key
+## http://api.census.gov/data/key_signup.html
+myCensusKey <- read.table("Census/authentication/censusDataAPIKey")
+
+```
+
+```{r downloadPollData, echo=FALSE }
+## Census and Polling Data download
+
+## http://ellisp.github.io/data/polls.csv
+## http://www.electoral-vote.com/evp2016/Info/data.html
+
+
+## Nation wide Polling data
+# http://election.princeton.edu/code/data/ (30KB data)
+pollData <- fread('http://election.princeton.edu/code/data/2016_NationalPolls.csv')
+
+
+## Reading from local files :
+#pollDataFrom538 <- read.table("pollingData/538PollData.csv")
+pollDataFrom538 <- read_csv("pollingData/538PollData.csv")
+View(pollDataFrom538)
+
+## Reading from local file
+
+electoralVotePollData <- read_csv("pollingData/electoralVotePollData.csv")
+View(electoralVotePollData)
+
+## Reading the entire census data from
+## https://factfinder.census.gov/faces/nav/jsf/pages/download_center.xhtml
+
+## Read all state names from here
+## http://www.fonz.net/blog/archives/2008/04/06/csv-of-states-and-state-abbreviations/
+
+## Clean the data and stage data download paths
+## http://census.ire.org/data/bulkdata.html
+
+# Instead of the form, you can build your own download URLs using this simple pattern: http://censusdata.ire.org/SS/all_LLL_in_SS.TT.csv with the following substitutions:
+# 
+# SS  The two-digit State FIPS code (note this appears twice in the URL)
+# LLL The three-digit summary level code.
+# TT  The variable length table code, e.g. P1 or H12G
+# NOTE: This data is gzip-compressed. Your browser should handle this automatically, but if you are using command-line tools like curl or wget to download the data, you will need to decompress it, even though there is no .gz extension.. For example:
+# curl http://censusdata.ire.org/09/all_060_in_09.PCT7.csv | gzcat > all_060_in_09.PCT7.csv
+# wget -O - http://censusdata.ire.org/09/all_060_in_09.PCT7.csv | gzcat > all_060_in_09.PCT7.csv
+
+```
+
+```{r downloadTwitterData, echo=FALSE}
+# 
+# ## Twitter Content of Polling Data
+# 
+# ## Twitter Content of Donald Trump
+# numberOfHillaryTweets <- 10
+# numberOfTrumpTweets <- 10
+# numberOfExitPollTweets <- 10
+# 
+# keywordHillary <- "hillary"
+# keywordTrump <- "trump"
+# keywordPolls <- "polls, exit_polls"
+# 
+# ## Twitter Content of Hillary Clinton
+# #tweetsHillary <- searchTwitter(keywordHillary, numberOfHillaryTweets)
+# tweetsHillary <- userTimeline('HillaryClinton', numberOfHillaryTweets)
+# tweetsHillaryData <- twListToDF(tweetsHillary)
+# writeLines(tweetsHillaryData$text, conn<-file("Twitter/data/hillaryTweets"))
+# 
+# ## Twitter Content of Donald Trump
+# tweetsTrump <- userTimeline('realDonaldTrump', numberOfTrumpTweets)
+# tweetsTrumpData <- twListToDF(tweetsTrump)
+# writeLines(tweetsTrumpData$text, conn<-file("Twitter/data/trumpTweets"))
+# 
+# ## Twitter Content of popular hashtags
+# ## hashtags chosen exit polls, hillary, trump, 
+# 
+# tweetsWithHashtagPolls <- searchTwitter("polls",numberOfExitPollTweets)
+# tweetsWithHashtagPollsData <-twListToDF(tweetsWithHashtagPolls)
+# writeLines(tweetsWithHashtagPollsData$text, conn<-file("Twitter/data/popularHashtagTweets"))
+# 
+# tweetsWithHashtagPolls <- searchTwitter("exit_polls",numberOfExitPollTweets)
+# tweetsWithHashtagPollsData <-twListToDF(tweetsWithHashtagPolls)
+# writeLines(tweetsWithHashtagPollsData$text, conn<-file("Twitter/data/popularHashtagTweets"), append='TRUE')
+# 
+
+## Twitter API allows access to only (a maximum of) 3200 tweets from a user account
+
+
+```
+
+```{r dataCleaners, echo=FALSE}
+## Data cleaning 
+
+## Remove unwanted data
+```
+
+```{r dataMiner, echo=FALSE}
+## have read the pollData in to the variable pollData in the other chunk
+pollsters <- pollData$pollster
+  # #pollsters <- unique(pollsters)
+  # #pollsters
+  # #pollsterCorpus <- Corpus(VectorSource(pollsters))
+  # #pollsterCorpus <- tm_map(pollsterCorpus, stemDocument)
+  # #wordcloud(pollsterCorpus, max.words = 50, random.order = FALSE)
+  # countPollsters<-count(pollsters)
+  # countPollsters<-data.frame(countPollsters)
+  # str(countPollsters)
+  # pollsterFreq<-table(countPollsters$freq)
+  # barplot(pollsterFreq, main="Different kinds of pollsters", xlab="Pollster")
+  # #barplot(countPollsters)
+
+pollingCompanies <- c(count(pollsters)$freq)
+pollingCompanies
+companiesThatHavePolled <- count(pollsters)$x
+companiesThatHavePolled
+barplot(pollingCompanies, names.arg = companiesThatHavePolled)
+barplot(pollingCompanies, names.arg = companiesThatHavePolled, xlab="Polling Agencies", ylab="Frequency", main="# of times different polling agencies have polled")
+
+
+myData <- Corpus(VectorSource(pollData))
+inspect(myData)
+myData <- tm_map(myData, removeWords, stopwords("english"))
+myData <- tm_map(myData, stemDocument)
+wordcloud(myData, scale=c(5,0.5), max.words = 120, rot.per = 0.30, colors = brewer.pal(3, "Dark2"))
+
+```
+
+```{r electionResults, echo=FALSE}
+NCCountyResults <- read.table("/Users/raviteja/Documents/DataMining/votingResults/countyNC.txt")
+View(NCCountyResults)
+
+```
+
+```{r popularVote, echo=FALSE}
+## Reading in the votingResults data from local file
+
+USVotingResults <- read.csv("votingResults/votingResults.csv")
+View(USVotingResults)
+stateAbbreviation <- unique(USVotingResults$state_abbr)
+stateAbbreviation
+
+## Declaring and initializing an array to hold the county count for each state
+countyByState <- array(0, length(stateAbbreviation))
+
+for(i in 1:length(stateAbbreviation))
+{
+  state <- paste("state", stateAbbreviation[i], sep="_")
+  assign(state, subset(USVotingResults, state_abbr==stateAbbreviation[i]) )
+  countyCount <- nrow(assign(state, subset(USVotingResults, state_abbr==stateAbbreviation[i]) ))
+  county <- paste("county", stateAbbreviation[i], sep="_")
+  assign(county, countyCount) 
+  countyByState[i] <- countyCount
+}
+
+View(countyByState)
+numberOfCountiesPlot <- plot_ly(USVotingResults, x = ~stateAbbreviation, y = ~countyByState,
+                             type='bar', mode='markers',
+                             marker = list(color=~countyByState, opacity = 0.3, size=~(countyByState), 
+                                           colors=c("red")),
+                             xaxis = list(showgrid=FALSE),
+                             yaxis = list(showgrid=FALSE)
+                             )
+numberOfCountiesPlot
+
+
+
+```
+
+
+```{r downloadCensusData, echo=FALSE}
+### Wrote perl scripts to automate data downloads
+### Path :: Documents/DataMining/
+### Files :: readData.sh and dataCleaner
+  ### Path : /Users/raviteja/Documents/DataMining/Census/census
+
+
+### Census data layout  :
+  ### Levels 
+  #       State :: 040
+  #       County :: 050
+  #       Subdivision :: 060
+  #       Census Tract :: 140
+  #       Place :: 160
+
+### Headers :
+  # POP100
+  # POP100.2000
+  # POP
+
+## Each of the folders now have 56 files
+
+## Algorithm ::
+  # Run through the state directory and get the mapping of the file_names and states.
+  # Delete all files in a directory of size 0
+  # (find /Name_Of_The_Directory -size  0 -print0 |xargs -0 rm)
+  # lapply(read.csv) failed :: if file size is 0
+
+##
+
+## Script to map the names and their IDs with states
+## created a csv file with state names and state Ids and state codes
+
+## This is the way the voting results data and other polling agency lists are 
+stateIDName <- read.csv("/Users/raviteja/Documents/DataMining/StateIDNameMapper.csv")
+names(stateIDName)
+## Sort alphabetically over statename to get the order in which census data is 
+censusOrderingStateInfo <- stateIDName[order(stateIDName$StateName), ]
+
+censusOrderingStateInfo
+View(censusOrderingStateInfo)
+
+
+USVotingResults <- read.csv("votingResults/votingResults.csv")
+## View(USVotingResults)
+stateAbbreviation <- unique(USVotingResults$state_abbr)
+stateAbbreviation <- as.data.frame(stateAbbreviation)
+
+
+## Ordering of the data in census is different from that of in the results database
+
+## Loading State Data in to R 
+
+
+listOfFiles <- list.files("~/Documents/DataMining/Census/census/State/", pattern="*.csv", full.names=TRUE)
+allStateData <- lapply(listOfFiles, read.csv)
+
+## summaryOfAllStateData <- lapply(allStateData, summary)
+## substring ?
+
+sapply(allStateData, class)
+stateIdAndName <- lapply(allStateData, `[`, 1)
+
+sapply(allStateData[1], class)
+str(allStateData[1])
+
+myCensusStateName       <- array(0, length(listOfFiles))
+myCensusStateId         <- array(0, length(listOfFiles))
+myCensusStatePopulation <- array(0, length(listOfFiles))
+
+for (i in 1:length(listOfFiles))
+{
+  stateInfo <- as.data.frame(allStateData[i])
+  myCensusStateName[i] <- as.data.frame(subset(stateInfo, select = c( "NAME")))
+  myCensusStateId[i] <- as.data.frame(subset(stateInfo, select = c("STATE")))
+  myCensusStatePopulation[i] <- as.data.frame(subset(stateInfo, select = c("POP100")))
+  
+}
+
+## Get the ordering of the state information and write a script to map their IDs
+
+censusCountyByState <- array(0, length(countyByState))
+censusOrderStateIds <- as.array(censusOrderingStateInfo[1]$StateID)
+
+for(i in 1:length(countyByState))
+{
+  censusCountyByState[i] = countyByState[censusOrderStateIds[i]]
+}
+
+myCensusStateDataList <- list(stateId = myCensusStateId, stateName = myCensusStateName, statePopulation =
+                            myCensusStatePopulation, countyCount = censusCountyByState,
+                            stateAbbreviation = censusOrderingStateInfo$StateAbbreviation)
+
+## Sanity check for the total county count ::
+cat("Total county count : ", (sum(myCensusStateDataList$countyCount)) )
+## Loading County Data in to R 
+
+
+listOfFiles <- list.files("~/Documents/DataMining/Census/census/County", pattern="*.csv", full.names=TRUE)
+allCountyData <- lapply(listOfFiles, read.csv)
+
+myCensusCountyName       <- array(0, length(listOfFiles))
+myCensusCountyPopulation <- array(0, length(listOfFiles))
+
+for (i in 1:length(listOfFiles))
+{
+  countyInfo <- as.data.frame(allCountyData[i])
+  myCensusCountyName[i] <- as.data.frame(subset(countyInfo, select = c( "NAME")))
+  myCensusCountyPopulation[i] <- as.data.frame(subset(countyInfo, select = c("POP100")))
+  
+}
+
+# myCensusCountyDataList <- list(stateId = myCensusStateId, stateName = myCensusStateName, statePopulation =
+#                            myCensusStatePopulation)
+myCensusCountyDataList <- list(stateName = myCensusStateName, countiesInTheState = myCensusCountyName,
+                               populationInEachCounty = myCensusCountyPopulation,
+                               stateAbbreviation = censusOrderingStateInfo$StateAbbreviation)
+
+
+
+# all_040_in_01_P1 <- read_csv("~/Documents/DataMining/Census/census/State/all_040_in_01.P1.csv")
+# 
+# 
+# # 
+# # totalNumberOfIndividualFiles <- 56
+# # 
+# # for(i in 1:totalNumberOfIndividualFiles)
+# # {
+# #   state <- paste("countyPopulation", stateAbbreviation[i], sep="_")
+# #   assign(state, subset(USVotingResults, state_abbr==stateAbbreviation[i]) )
+# #   countyCount <- nrow(assign(state, subset(USVotingResults, state_abbr==stateAbbreviation[i]) ))
+# #   county <- paste("county", stateAbbreviation[i], sep="_")
+# #   assign(county, countyCount) 
+# #   countyByState[i] <- countyCount
+# # }
+# 
+# alaskaCensusStateData <- read_csv("~/Documents/DataMining/Census/census/State/all_040_in_01.P1.csv")
+# View(alaskaCensusStateData)
+# 
+# alaskaCensusCountyData <- read_csv("~/Documents/DataMining/Census/census/County/all_050_in_01.P1.csv")
+# View(alaskaCensusCountyData)
+# 
+# alaskaCensusSubdivisionData <- read_csv("~/Documents/DataMining/Census/census/Subdivision/all_060_in_01.P1.csv")
+# View(alaskaCensusSubdivisionData)
+# 
+# alaskaCensusPlaceData <- read_csv("~/Documents/DataMining/Census/census/Place/all_160_in_01.P1.csv")
+# View(alaskaCensusPlaceData)
+# 
+# alaskaCensusTractData <- read_csv("~/Documents/DataMining/Census/census/CensusTract/all_140_in_01.P1.csv")
+# View(alaskaCensusTractData)
+
+```
+
+```{r StateVotingResults, echo=FALSE}
+
+stateVotingResultsList <- list()
+for(i in 1:length(myCensusStateDataList$stateName))
+{
+   
+  stateName        <- as.character(myCensusStateDataList$stateName[[i]])
+  stateId          <- as.character(myCensusStateDataList$stateId[[i]])
+  statePopulation  <- as.numeric(myCensusStateDataList$statePopulation[i])
+  stateCountyCount <- as.numeric(myCensusStateDataList$countyCount[i])
+
+  # cat("State Details :\n State Name : ", stateName, "\n State Abbreviation : ", stateId,
+  #     "\n State Population (census of 2010) : ", statePopulation,
+  #     "\n Total number of counties in the state: ", stateCountyCount)
+  # 
+  stateVotingResults <- subset(USVotingResults, state_abbr==myCensusStateDataList$stateAbbreviation[i])
+  
+  stateVotingResultsList[[paste0("State", i)]] <- list(stateVotingResults)
+}
+
+```
+
+```{r StateAndVotingResults, echo=FALSE}
+stateVotingAndCensusResultsList <- list(censusResults = myCensusCountyDataList ,
+                                          votingResults = stateVotingResultsList)
+
+```
+
+```{r Alabama, echo= FALSE}
+
+## State 1 :: Alabama
+## From census data
+# stateName        <- as.character(myCensusStateDataList$stateName[[1]])
+# stateId          <- as.character(myCensusStateDataList$stateId[[1]])
+# statePopulation  <- as.numeric(myCensusStateDataList$statePopulation[1])
+# stateCountyCount <- as.numeric(myCensusStateDataList$countyCount[1])
+# 
+# cat("State Details :\n State Name : ", stateName, "\n State Abbreviation : ", stateId,
+#       "\n State Population (census of 2010) : ", statePopulation,
+#       "\n Total number of counties in the state: ", stateCountyCount)
+# 
+# alabamaVotingResults <- list(USVotingResults, 30:96)
+# 
+# totalAlabamaVotes <- sum(alabamaVotingResults$total_votes)
+
+countiesInAlabama <- stateVotingAndCensusResultsList$censusResults$countiesInTheState[1]
+countyPopulationInAlabama <- stateVotingAndCensusResultsList$censusResults$populationInEachCounty[1]
+alabamaVotingResults <- as.data.frame(stateVotingAndCensusResultsList$votingResults$State1)
+
+```
+
+```{r Alaska, echo= FALSE}
+## From state census information
+
+```
+
+```{r Arkansas, echo=FALSE}
+#USVotingResults
+arkansas <- subset(USVotingResults, state_abbr=="AR")
+numberOfCountiesInArkansas <- nrow(arkansas)
+```
+
+```{r Arizona, echo=FALSE}
+```
+
+
+```{r Presentation, echo=FALSE}
+# From the following data sets : Census Data, Polling Data, Election Result Data
+  # Polling Methods              : Internet, IVR/Online, Live Phone, Automated phone
+  # Voting Type                  : Registered Voters, Likely Voters 
+  # Each month <----> Each type
+  # Starting from January through November
+  # What change did the polling agency find?
+  # Sampling size
+  # Campaign impact ? 
+    # Twitter comparison
+  # The reason to have polling agencies fail
+    # Sampling size
+    # Sampling methods (oversample and undersample)
+    # Campaign or candidate impact "Propoganda" (again from social networking data )
+    # Impact of individual candidate' vote count
+    # Correlation of the candidate' propoganda impact (to see if the polls have indicated any increase/decrease)
+    # 
+```
+
+
+```{r dataPlotters, echo=FALSE}
+## TexLive is required for PDF output
+## pdflatex
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
